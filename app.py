@@ -5,45 +5,93 @@ from ultralytics import YOLO
 from PIL import Image
 import tempfile
 import os
+from streamlit_webrtc import webrtc_streamer
+import av
 
-# ---------------- CONFIG ----------------
-st.set_page_config(page_title="Pothole Detection", layout="wide")
-st.title("🕳️ Pothole Detection System using YOLO")
+# ---------------- PAGE CONFIG ----------------
+st.set_page_config(
+    page_title="Pothole Detection System",
+    page_icon="🕳️",
+    layout="wide"
+)
+
+# ---------------- CUSTOM CSS ----------------
+st.markdown("""
+<style>
+body {
+    background-color: #f6f9fc;
+}
+.main-title {
+    font-size: 45px;
+    font-weight: 800;
+    color: #0f172a;
+    text-align: center;
+}
+.subtitle {
+    text-align: center;
+    color: #475569;
+    font-size: 18px;
+}
+.card {
+    background-color: white;
+    padding: 25px;
+    border-radius: 15px;
+    box-shadow: 0px 10px 25px rgba(0,0,0,0.08);
+    margin-bottom: 20px;
+}
+.footer {
+    text-align: center;
+    color: gray;
+    font-size: 14px;
+}
+</style>
+""", unsafe_allow_html=True)
+
+# ---------------- HEADER ----------------
+st.markdown("<div class='main-title'>🕳️ Pothole Detection System</div>", unsafe_allow_html=True)
+st.markdown("<div class='subtitle'>YOLO-based Intelligent Road Damage Detection</div>", unsafe_allow_html=True)
+st.markdown("---")
 
 # ---------------- LOAD MODEL ----------------
 @st.cache_resource
 def load_model():
-    return YOLO("best.pt")
+    model_path = os.path.join(os.path.dirname(__file__), "best.pt")
+    if not os.path.exists(model_path):
+        st.error("❌ Model file (best.pt) not found")
+        st.stop()
+    return YOLO(model_path)
 
 model = load_model()
 
 # ---------------- SIDEBAR ----------------
-st.sidebar.header("Detection Mode")
+st.sidebar.title("⚙️ Control Panel")
+st.sidebar.markdown("Configure detection settings")
+
 mode = st.sidebar.radio(
-    "Select Detection Type",
-    ("Live Camera", "Upload Image / Video")
+    "🎥 Select Detection Mode",
+    ("📷 Live Camera", "📤 Upload Image / Video")
 )
 
 confidence = st.sidebar.slider(
-    "Confidence Threshold",
-    min_value=0.1,
-    max_value=1.0,
-    value=0.4
+    "🎯 Confidence Threshold",
+    0.1, 1.0, 0.4
 )
 
-# ---------------- FUNCTIONS ----------------
+st.sidebar.markdown("---")
+st.sidebar.success("🟢 Model Loaded Successfully")
+
+# ---------------- UTILITY FUNCTION ----------------
 def draw_boxes(frame, results):
     for r in results:
-        boxes = r.boxes
-        for box in boxes:
+        for box in r.boxes:
             conf = float(box.conf[0])
             if conf >= confidence:
                 x1, y1, x2, y2 = map(int, box.xyxy[0])
                 cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
                 cv2.putText(
                     frame,
-                    f"Pothole {conf:.2f}",
-                    (x1, y1 - 10),
+                    f"POTHOLE {conf:.2f}",
+                    (x1, y1 - 8),
                     cv2.FONT_HERSHEY_SIMPLEX,
                     0.6,
                     (0, 255, 0),
@@ -51,60 +99,51 @@ def draw_boxes(frame, results):
                 )
     return frame
 
-# ---------------- LIVE CAMERA MODE ----------------
-if mode == "Live Camera":
-    st.subheader("📷 Live Camera Pothole Detection")
+# ---------------- MAIN CONTENT ----------------
+if "Live Camera" in mode:
+    st.markdown("<div class='card'>", unsafe_allow_html=True)
+    st.subheader("📷 Real-Time Pothole Detection (Browser Camera)")
+    st.info("Uses browser camera – works on Streamlit Cloud & Mobile")
 
-    run = st.checkbox("Start Camera")
+    def video_frame_callback(frame):
+        img = frame.to_ndarray(format="bgr24")
+        results = model(img, stream=True)
+        img = draw_boxes(img, results)
+        return av.VideoFrame.from_ndarray(img, format="bgr24")
 
-    frame_window = st.image([])
+    webrtc_streamer(
+        key="pothole-live",
+        video_frame_callback=video_frame_callback,
+        media_stream_constraints={"video": True, "audio": False},
+    )
 
-    cap = cv2.VideoCapture(0)
+    st.markdown("</div>", unsafe_allow_html=True)
 
-    while run:
-        ret, frame = cap.read()
-        if not ret:
-            st.error("Camera not accessible")
-            break
-
-        results = model(frame, stream=True)
-        frame = draw_boxes(frame, results)
-
-        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        frame_window.image(frame)
-
-    cap.release()
-
-# ---------------- UPLOAD IMAGE / VIDEO MODE ----------------
 else:
+    st.markdown("<div class='card'>", unsafe_allow_html=True)
     st.subheader("📤 Upload Image or Video")
+    st.info("Supported formats: JPG, PNG, MP4, AVI")
 
     uploaded_file = st.file_uploader(
-        "Upload Image or Video",
+        "Choose a file",
         type=["jpg", "jpeg", "png", "mp4", "avi", "mov"]
     )
 
-    if uploaded_file is not None:
-
-        file_type = uploaded_file.type
-
-        # ---------- IMAGE ----------
-        if "image" in file_type:
+    if uploaded_file:
+        if "image" in uploaded_file.type:
             image = Image.open(uploaded_file)
             image_np = np.array(image)
 
             results = model(image_np, stream=True)
             image_np = draw_boxes(image_np, results)
 
-            st.image(image_np, caption="Detected Potholes", use_column_width=True)
+            st.image(image_np, caption="✅ Detected Potholes", use_column_width=True)
 
-        # ---------- VIDEO ----------
         else:
             tfile = tempfile.NamedTemporaryFile(delete=False)
             tfile.write(uploaded_file.read())
 
             cap = cv2.VideoCapture(tfile.name)
-
             stframe = st.image([])
 
             while cap.isOpened():
@@ -114,10 +153,17 @@ else:
 
                 results = model(frame, stream=True)
                 frame = draw_boxes(frame, results)
-
                 frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                 stframe.image(frame)
 
             cap.release()
             os.unlink(tfile.name)
 
+    st.markdown("</div>", unsafe_allow_html=True)
+
+# ---------------- FOOTER ----------------
+st.markdown("---")
+st.markdown(
+    "<div class='footer'>🚀 Developed for Smart Road Monitoring | YOLO + Streamlit</div>",
+    unsafe_allow_html=True
+)
