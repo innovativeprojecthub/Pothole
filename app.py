@@ -8,132 +8,124 @@ import os
 from streamlit_webrtc import webrtc_streamer
 import av
 
-# ================= PAGE CONFIG =================
+# ================== PAGE CONFIG ==================
 st.set_page_config(
-    page_title="AI Vision Playground",
-    page_icon="✨",
-    layout="wide"
+    page_title="Smart Road Monitoring System",
+    page_icon="🛣️",
+    layout="wide",
+    initial_sidebar_state="expanded"
 )
 
-# ================= ULTRA CUSTOM CSS =================
+# ================== ADVANCED CSS ==================
 st.markdown("""
 <style>
-@keyframes float {
-  0% { transform: translateY(0px); }
-  50% { transform: translateY(-8px); }
-  100% { transform: translateY(0px); }
+html, body {
+    background: linear-gradient(145deg, #020617, #020617);
+    color: #e5e7eb;
 }
-
-@keyframes gradient {
-  0% {background-position: 0% 50%;}
-  50% {background-position: 100% 50%;}
-  100% {background-position: 0% 50%;}
+.dashboard-title {
+    font-size: 42px;
+    font-weight: 900;
+    text-align: left;
+    color: #22c55e;
 }
-
-.hero-text {
-  font-size: 64px;
-  font-weight: 900;
-  background: linear-gradient(270deg, #00f5a0, #00d9f5, #a855f7);
-  background-size: 600% 600%;
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  animation: gradient 6s ease infinite;
+.dashboard-subtitle {
+    font-size: 16px;
+    color: #9ca3af;
 }
-
-.hero-sub {
-  font-size: 20px;
-  color: #475569;
+.kpi-card {
+    background: rgba(15, 23, 42, 0.85);
+    border-radius: 18px;
+    padding: 20px;
+    box-shadow: 0 0 25px rgba(34,197,94,0.15);
 }
-
-.glass {
-  background: rgba(255,255,255,0.55);
-  backdrop-filter: blur(14px);
-  border-radius: 25px;
-  padding: 30px;
-  box-shadow: 0 30px 60px rgba(0,0,0,0.1);
-  transition: all 0.4s ease;
+.section-card {
+    background: rgba(15, 23, 42, 0.85);
+    border-radius: 20px;
+    padding: 30px;
+    box-shadow: 0 0 40px rgba(0,0,0,0.4);
 }
-
-.glass:hover {
-  transform: translateY(-12px) scale(1.02);
-  box-shadow: 0 40px 80px rgba(0,0,0,0.18);
+.status-ok {
+    color: #22c55e;
+    font-weight: bold;
 }
-
-.mode-btn {
-  border-radius: 50px !important;
-  font-size: 18px !important;
-  padding: 12px 30px !important;
-}
-
 .footer {
-  text-align: center;
-  font-size: 14px;
-  color: #64748b;
+    text-align: center;
+    color: #6b7280;
+    font-size: 13px;
 }
 </style>
 """, unsafe_allow_html=True)
 
-# ================= HERO SECTION =================
-col1, col2 = st.columns([3,2])
-
+# ================== HEADER ==================
+col1, col2 = st.columns([4,1])
 with col1:
-    st.markdown("<div class='hero-text'>AI Vision Playground</div>", unsafe_allow_html=True)
-    st.markdown("<p class='hero-sub'>Real-time pothole detection powered by deep learning</p>", unsafe_allow_html=True)
-    st.markdown("🚀 **See. Detect. Improve Roads.**")
+    st.markdown("<div class='dashboard-title'>SMART ROAD DAMAGE MONITORING</div>", unsafe_allow_html=True)
+    st.markdown("<div class='dashboard-subtitle'>AI-powered pothole detection using deep learning</div>", unsafe_allow_html=True)
 
 with col2:
-    st.image("PotholeGIF.gif", use_column_width=True)
+    st.markdown("<br><span class='status-ok'>● SYSTEM ONLINE</span>", unsafe_allow_html=True)
 
-st.markdown("<br><br>", unsafe_allow_html=True)
+st.markdown("---")
 
-# ================= LOAD MODEL =================
+# ================== LOAD MODEL ==================
 @st.cache_resource
 def load_model():
     model_path = os.path.join(os.path.dirname(__file__), "best.pt")
     if not os.path.exists(model_path):
-        st.error("Model file missing")
+        st.error("Model not found")
         st.stop()
     return YOLO(model_path)
 
 model = load_model()
 
-# ================= MODE SELECTION =================
-st.markdown("## 🔀 Choose How You Want to Detect")
+# ================== KPI BAR ==================
+k1, k2, k3, k4 = st.columns(4)
+k1.markdown("<div class='kpi-card'>🧠 AI Model<br><b>YOLOv8</b></div>", unsafe_allow_html=True)
+k2.markdown("<div class='kpi-card'>🎯 Accuracy<br><b>High Precision</b></div>", unsafe_allow_html=True)
+k3.markdown("<div class='kpi-card'>⚡ Inference<br><b>Real-Time</b></div>", unsafe_allow_html=True)
+k4.markdown("<div class='kpi-card'>🌐 Deployment<br><b>Cloud Ready</b></div>", unsafe_allow_html=True)
 
-mode_col1, mode_col2 = st.columns(2)
+st.markdown("<br>", unsafe_allow_html=True)
 
-with mode_col1:
-    live_mode = st.button("🎥 Live Camera", use_container_width=True)
+# ================== SIDEBAR ==================
+st.sidebar.title("CONTROL CENTER")
+st.sidebar.markdown("Select operational mode")
 
-with mode_col2:
-    upload_mode = st.button("📤 Upload Media", use_container_width=True)
+mode = st.sidebar.radio(
+    "Detection Mode",
+    ["Live Surveillance Camera", "Media File Analysis"]
+)
 
-if "mode" not in st.session_state:
-    st.session_state.mode = None
+confidence = st.sidebar.slider("Detection Confidence", 0.1, 1.0, 0.45)
 
-if live_mode:
-    st.session_state.mode = "live"
+st.sidebar.markdown("---")
+st.sidebar.markdown("🟢 Model Status: **ACTIVE**")
 
-if upload_mode:
-    st.session_state.mode = "upload"
-
-confidence = st.slider("🎯 Detection Sensitivity", 0.1, 1.0, 0.45)
-
-# ================= DRAW FUNCTION =================
+# ================== DRAW FUNCTION ==================
 def draw_boxes(frame, results):
     for r in results:
         for box in r.boxes:
             if float(box.conf[0]) >= confidence:
                 x1, y1, x2, y2 = map(int, box.xyxy[0])
-                cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 120), 3)
-                cv2.putText(frame, "POTHOLE", (x1, y1 - 10),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 120), 2)
+                cv2.rectangle(frame, (x1, y1), (x2, y2), (34,197,94), 3)
+                cv2.putText(
+                    frame,
+                    f"POTHOLE",
+                    (x1, y1 - 10),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.7,
+                    (34,197,94),
+                    2
+                )
     return frame
 
-# ================= LIVE MODE =================
-if st.session_state.mode == "live":
-    st.markdown("<div class='glass'>", unsafe_allow_html=True)
-    st.subheader("🎥 Live Browser Camera Detection")
+# ================== MAIN SECTION ==================
+st.markdown("<div class='section-card'>", unsafe_allow_html=True)
+
+if mode == "Live Surveillance Camera":
+    st.subheader("LIVE ROAD SURVEILLANCE")
+    st.caption("Browser-based secure camera feed")
 
     def video_frame_callback(frame):
         img = frame.to_ndarray(format="bgr24")
@@ -142,31 +134,30 @@ if st.session_state.mode == "live":
         return av.VideoFrame.from_ndarray(img, format="bgr24")
 
     webrtc_streamer(
-        key="live-playground",
+        key="live",
         video_frame_callback=video_frame_callback,
-        media_stream_constraints={"video": True, "audio": False},
+        media_stream_constraints={"video": True, "audio": False}
     )
 
-    st.markdown("</div>", unsafe_allow_html=True)
+else:
+    st.subheader("MEDIA FILE ANALYSIS")
+    st.caption("Upload images or videos captured by inspection vehicles")
 
-# ================= UPLOAD MODE =================
-if st.session_state.mode == "upload":
-    st.markdown("<div class='glass'>", unsafe_allow_html=True)
-    st.subheader("📤 Upload Image or Video")
+    uploaded_file = st.file_uploader(
+        "Upload road footage",
+        type=["jpg", "png", "jpeg", "mp4", "avi", "mov"]
+    )
 
-    file = st.file_uploader("Drop your road image or video here",
-                            type=["jpg", "jpeg", "png", "mp4", "avi", "mov"])
-
-    if file:
-        if "image" in file.type:
-            img = np.array(Image.open(file))
+    if uploaded_file:
+        if "image" in uploaded_file.type:
+            img = np.array(Image.open(uploaded_file))
             results = model(img, stream=True)
             img = draw_boxes(img, results)
             st.image(img, use_column_width=True)
 
         else:
             tfile = tempfile.NamedTemporaryFile(delete=False)
-            tfile.write(file.read())
+            tfile.write(uploaded_file.read())
             cap = cv2.VideoCapture(tfile.name)
             stframe = st.image([])
 
@@ -181,8 +172,11 @@ if st.session_state.mode == "upload":
             cap.release()
             os.unlink(tfile.name)
 
-    st.markdown("</div>", unsafe_allow_html=True)
+st.markdown("</div>", unsafe_allow_html=True)
 
-# ================= FOOTER =================
-st.markdown("<br><br>", unsafe_allow_html=True)
-st.markdown("<div class='footer'>✨ Built with YOLO & Streamlit | AI Vision Playground</div>", unsafe_allow_html=True)
+# ================== FOOTER ==================
+st.markdown("---")
+st.markdown(
+    "<div class='footer'>© 2026 Smart Infrastructure AI Platform | YOLO + Streamlit</div>",
+    unsafe_allow_html=True
+)
