@@ -19,7 +19,10 @@ st.set_page_config(
 st.markdown("""
 <style>
 body {
-    background-color: #f6f9fc;
+    background-color: #87CEEB; /* 🔵 SKY BLUE */
+}
+.stApp {
+    background-color: #87CEEB; /* 🔵 SKY BLUE FULL APP */
 }
 .main-title {
     font-size: 45px;
@@ -29,7 +32,7 @@ body {
 }
 .subtitle {
     text-align: center;
-    color: #475569;
+    color: #1e293b;
     font-size: 18px;
 }
 .card {
@@ -41,7 +44,7 @@ body {
 }
 .footer {
     text-align: center;
-    color: gray;
+    color: #334155;
     font-size: 14px;
 }
 </style>
@@ -50,6 +53,12 @@ body {
 # ---------------- HEADER ----------------
 st.markdown("<div class='main-title'>🕳️ Pothole Detection System</div>", unsafe_allow_html=True)
 st.markdown("<div class='subtitle'>YOLO-based Intelligent Road Damage Detection</div>", unsafe_allow_html=True)
+
+# 🔵 NEW: CENTERED GIF BELOW TITLE
+gif_col1, gif_col2, gif_col3 = st.columns([1,2,1])
+with gif_col2:
+    st.image("PotholeGIF.gif", use_column_width=True)
+
 st.markdown("---")
 
 # ---------------- LOAD MODEL ----------------
