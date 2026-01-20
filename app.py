@@ -18,30 +18,51 @@ st.set_page_config(
 # ---------------- CUSTOM CSS ----------------
 st.markdown("""
 <style>
+/* -------- BACKGROUND -------- */
 body {
-    background-color: #87CEEB; /* 🔵 SKY BLUE */
+    background-color: #87CEEB;
 }
 .stApp {
-    background-color: #87CEEB; /* 🔵 SKY BLUE FULL APP */
+    background-color: #87CEEB;
 }
+
+/* -------- HEADERS -------- */
 .main-title {
     font-size: 45px;
     font-weight: 800;
     color: #0f172a;
-    text-align: center;
 }
 .subtitle {
-    text-align: center;
     color: #1e293b;
     font-size: 18px;
 }
+
+/* -------- CARD STYLE + HOVER -------- */
 .card {
     background-color: white;
     padding: 25px;
     border-radius: 15px;
     box-shadow: 0px 10px 25px rgba(0,0,0,0.08);
     margin-bottom: 20px;
+    transition: all 0.35s ease-in-out;
 }
+.card:hover {
+    transform: translateY(-10px) scale(1.02);
+    box-shadow: 0px 25px 45px rgba(0,0,0,0.18);
+}
+
+/* -------- SLIDER ANIMATION -------- */
+div[data-baseweb="slider"] {
+    transition: all 0.3s ease-in-out;
+}
+div[data-baseweb="slider"]:hover {
+    transform: scale(1.03);
+}
+div[data-baseweb="slider"] span {
+    background-color: #0ea5e9 !important;
+}
+
+/* -------- FOOTER -------- */
 .footer {
     text-align: center;
     color: #334155;
@@ -50,13 +71,14 @@ body {
 </style>
 """, unsafe_allow_html=True)
 
-# ---------------- HEADER ----------------
-st.markdown("<div class='main-title'>🕳️ Pothole Detection System</div>", unsafe_allow_html=True)
-st.markdown("<div class='subtitle'>YOLO-based Intelligent Road Damage Detection</div>", unsafe_allow_html=True)
+# ---------------- HEADER (TEXT LEFT, GIF RIGHT) ----------------
+header_col1, header_col2 = st.columns([3, 2])
 
-# 🔵 NEW: CENTERED GIF BELOW TITLE
-gif_col1, gif_col2, gif_col3 = st.columns([1,2,1])
-with gif_col2:
+with header_col1:
+    st.markdown("<div class='main-title'>🕳️ Pothole Detection System</div>", unsafe_allow_html=True)
+    st.markdown("<div class='subtitle'>YOLO-based Intelligent Road Damage Detection</div>", unsafe_allow_html=True)
+
+with header_col2:
     st.image("PotholeGIF.gif", use_column_width=True)
 
 st.markdown("---")
