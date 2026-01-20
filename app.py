@@ -82,7 +82,7 @@ with col1:
     st.markdown("🚀 **See. Detect. Improve Roads.**")
 
 with col2:
-    st.image("ai_vision.gif", use_column_width=True)
+    st.image("PotholeGIF.gif", use_column_width=True)
 
 st.markdown("<br><br>", unsafe_allow_html=True)
 
