@@ -173,6 +173,6 @@ else:
 # ---------------- FOOTER ----------------
 st.markdown("---")
 st.markdown(
-    "<div class='footer'>🚀 Developed for Smart Road Monitoring | YOLO + Streamlit</div>",
+    "<div class='footer'>! Developed By Mr. Ganesh Pansare ! | YOLO + Streamlit</div>",
     unsafe_allow_html=True
 )
