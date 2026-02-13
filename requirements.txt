@@ -1,9 +1,14 @@
-streamlit
-ultralytics
-opencv-python-headless
-numpy
+streamlit==1.32.0
+ultralytics==8.1.0
+
+# Torch CPU stable build
+torch==2.1.0
+torchvision==0.16.0
+
+# VERY IMPORTANT — prevent GUI OpenCV
+opencv-python-headless==4.8.1.78
+
+numpy==1.26.4
 Pillow
-torch
-torchvision
-streamlit-webrtc
-av
+streamlit-webrtc==0.47.7
+av==10.0.0
