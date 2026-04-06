@@ -6,4 +6,4 @@ opencv-python-headless==4.8.1.78
 numpy==1.26.4
 Pillow
 streamlit-webrtc==0.47.7
-av==9.2.0
+av==8.1.0
