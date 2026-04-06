@@ -5,8 +5,8 @@ from ultralytics import YOLO
 from PIL import Image
 import tempfile
 import os
-from streamlit_webrtc import webrtc_streamer
-import av
+#from streamlit_webrtc import webrtc_streamer
+#import av
 
 # ---------------- PAGE CONFIG ----------------
 st.set_page_config(
@@ -111,8 +111,10 @@ def draw_boxes(frame, results):
 # ---------------- MAIN CONTENT ----------------
 if "Live Camera" in mode:
     st.markdown("<div class='card'>", unsafe_allow_html=True)
-    st.subheader("📷 Real-Time Pothole Detection (Browser Camera)")
-    st.info("Uses browser camera – works on Streamlit Cloud & Mobile")
+    st.subheader("📷 Live Camera Not Available on Cloud")
+    st.warning("🚫 Live camera is disabled in cloud deployment. Please use Upload mode.")
+    st.info("💡 Tip: Run this app locally to use webcam detection.")
+    st.markdown("</div>", unsafe_allow_html=True)
 
     def video_frame_callback(frame):
         img = frame.to_ndarray(format="bgr24")
