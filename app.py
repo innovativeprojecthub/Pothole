@@ -116,20 +116,7 @@ if "Live Camera" in mode:
     st.info("💡 Tip: Run this app locally to use webcam detection.")
     st.markdown("</div>", unsafe_allow_html=True)
 
-    def video_frame_callback(frame):
-        img = frame.to_ndarray(format="bgr24")
-        results = model(img, stream=True)
-        img = draw_boxes(img, results)
-        return av.VideoFrame.from_ndarray(img, format="bgr24")
-
-    webrtc_streamer(
-        key="pothole-live",
-        video_frame_callback=video_frame_callback,
-        media_stream_constraints={"video": True, "audio": False},
-    )
-
-    st.markdown("</div>", unsafe_allow_html=True)
-
+    
 else:
     st.markdown("<div class='card'>", unsafe_allow_html=True)
     st.subheader("📤 Upload Image or Video")
