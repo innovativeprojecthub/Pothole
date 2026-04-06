@@ -5,8 +5,6 @@ from ultralytics import YOLO
 from PIL import Image
 import tempfile
 import os
-#from streamlit_webrtc import webrtc_streamer
-#import av
 
 # ---------------- PAGE CONFIG ----------------
 st.set_page_config(
@@ -19,29 +17,49 @@ st.set_page_config(
 st.markdown("""
 <style>
 body {
-    background-color: #87CEEB; /* 🔵 SKY BLUE */
+    background-color: #87CEEB;
 }
 .stApp {
-    background-color: #87CEEB; /* 🔵 SKY BLUE FULL APP */
+    background-color: #87CEEB;
 }
+
+/* Header */
 .main-title {
     font-size: 45px;
     font-weight: 800;
     color: #0f172a;
-    text-align: center;
 }
 .subtitle {
-    text-align: center;
     color: #1e293b;
     font-size: 18px;
 }
+
+/* Card Hover */
 .card {
     background-color: white;
     padding: 25px;
     border-radius: 15px;
     box-shadow: 0px 10px 25px rgba(0,0,0,0.08);
     margin-bottom: 20px;
+    transition: all 0.35s ease-in-out;
 }
+.card:hover {
+    transform: translateY(-10px) scale(1.02);
+    box-shadow: 0px 25px 45px rgba(0,0,0,0.18);
+}
+
+/* Slider animation */
+div[data-baseweb="slider"] {
+    transition: all 0.3s ease-in-out;
+}
+div[data-baseweb="slider"]:hover {
+    transform: scale(1.03);
+}
+div[data-baseweb="slider"] span {
+    background-color: #0ea5e9 !important;
+}
+
+/* Footer */
 .footer {
     text-align: center;
     color: #334155;
@@ -51,12 +69,13 @@ body {
 """, unsafe_allow_html=True)
 
 # ---------------- HEADER ----------------
-st.markdown("<div class='main-title'>🕳️ Pothole Detection System</div>", unsafe_allow_html=True)
-st.markdown("<div class='subtitle'>YOLO-based Intelligent Road Damage Detection</div>", unsafe_allow_html=True)
+col1, col2 = st.columns([3, 2])
 
-# 🔵 NEW: CENTERED GIF BELOW TITLE
-gif_col1, gif_col2, gif_col3 = st.columns([1,2,1])
-with gif_col2:
+with col1:
+    st.markdown("<div class='main-title'>🕳️ Pothole Detection System</div>", unsafe_allow_html=True)
+    st.markdown("<div class='subtitle'>YOLO-based Intelligent Road Damage Detection</div>", unsafe_allow_html=True)
+
+with col2:
     st.image("PotholeGIF.gif", use_column_width=True)
 
 st.markdown("---")
@@ -74,11 +93,10 @@ model = load_model()
 
 # ---------------- SIDEBAR ----------------
 st.sidebar.title("⚙️ Control Panel")
-st.sidebar.markdown("Configure detection settings")
 
 mode = st.sidebar.radio(
     "🎥 Select Detection Mode",
-    ("📷 Live Camera", "📤 Upload Image / Video")
+    ("📤 Upload Image / Video",)
 )
 
 confidence = st.sidebar.slider(
@@ -86,98 +104,103 @@ confidence = st.sidebar.slider(
     0.1, 1.0, 0.4
 )
 
-st.sidebar.markdown("---")
 st.sidebar.success("🟢 Model Loaded Successfully")
 
-# ---------------- UTILITY FUNCTION ----------------
+# ---------------- DRAW FUNCTION ----------------
 def draw_boxes(frame, results):
-    for r in results:
-        for box in r.boxes:
-            conf = float(box.conf[0])
-            if conf >= confidence:
-                x1, y1, x2, y2 = map(int, box.xyxy[0])
-                cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
-                cv2.putText(
-                    frame,
-                    f"POTHOLE {conf:.2f}",
-                    (x1, y1 - 8),
-                    cv2.FONT_HERSHEY_SIMPLEX,
-                    0.6,
-                    (0, 255, 0),
-                    2
-                )
+    try:
+        for r in results:
+            for box in r.boxes:
+                conf = float(box.conf[0])
+
+                if conf >= confidence:
+                    x1, y1, x2, y2 = map(int, box.xyxy[0])
+
+                    cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+
+                    cv2.putText(
+                        frame,
+                        f"POTHOLE {conf:.2f}",
+                        (x1, y1 - 8),
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        0.6,
+                        (0, 255, 0),
+                        2
+                    )
+    except Exception as e:
+        st.error(f"Drawing error: {e}")
+
     return frame
 
-# ---------------- MAIN CONTENT ----------------
-if "Live Camera" in mode:
-    st.markdown("<div class='card'>", unsafe_allow_html=True)
-    st.subheader("📷 Live Camera Not Available on Cloud")
-    st.warning("🚫 Live camera is disabled in cloud deployment. Please use Upload mode.")
-    st.info("💡 Tip: Run this app locally to use webcam detection.")
-    st.markdown("</div>", unsafe_allow_html=True)
+# ---------------- MAIN ----------------
+st.markdown("<div class='card'>", unsafe_allow_html=True)
 
-    
-else:
-    st.markdown("<div class='card'>", unsafe_allow_html=True)
-    st.subheader("📤 Upload Image or Video")
-    st.info("Supported formats: JPG, PNG, MP4, AVI")
+st.subheader("📤 Upload Image or Video")
+uploaded_file = st.file_uploader(
+    "Choose a file",
+    type=["jpg", "jpeg", "png", "mp4", "avi", "mov"]
+)
 
-    uploaded_file = st.file_uploader(
-        "Choose a file",
-        type=["jpg", "jpeg", "png", "mp4", "avi", "mov"]
-    )
+if uploaded_file:
 
-    if uploaded_file:
+    # ---------- IMAGE ----------
     if "image" in uploaded_file.type:
         image = Image.open(uploaded_file)
 
-        # 🔵 FIX 1: Convert to RGB (removes alpha channel issues)
+        # Fix 1: convert to RGB
         image = image.convert("RGB")
 
         image_np = np.array(image)
 
-        # 🔵 FIX 2: Ensure correct dtype
+        # Fix 2: dtype
         image_np = image_np.astype(np.uint8)
 
-        # 🔵 FIX 3: Validate shape
+        # Fix 3: validate
         if image_np is None or len(image_np.shape) != 3:
             st.error("Invalid image format")
             st.stop()
 
         try:
-            results = model(image_np)   # ❌ REMOVE stream=True
+            results = model(image_np)   # FIXED (no stream=True)
         except Exception as e:
-            st.error(f"Model inference error: {e}")
+            st.error(f"Inference error: {e}")
             st.stop()
 
         image_np = draw_boxes(image_np, results)
 
         st.image(image_np, caption="✅ Detected Potholes", use_column_width=True)
-        else:
-            tfile = tempfile.NamedTemporaryFile(delete=False)
-            tfile.write(uploaded_file.read())
 
-            cap = cv2.VideoCapture(tfile.name)
-            stframe = st.image([])
+    # ---------- VIDEO ----------
+    else:
+        tfile = tempfile.NamedTemporaryFile(delete=False)
+        tfile.write(uploaded_file.read())
 
-            while cap.isOpened():
-                ret, frame = cap.read()
-                if not ret:
-                    break
+        cap = cv2.VideoCapture(tfile.name)
+        stframe = st.image([])
 
-                results = model(frame, stream=True)
+        while cap.isOpened():
+            ret, frame = cap.read()
+            if not ret:
+                break
+
+            try:
+                results = model(frame)
                 frame = draw_boxes(frame, results)
-                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                stframe.image(frame)
+            except Exception as e:
+                st.error(f"Video processing error: {e}")
+                break
 
-            cap.release()
-            os.unlink(tfile.name)
+            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            stframe.image(frame)
 
-    st.markdown("</div>", unsafe_allow_html=True)
+        cap.release()
+        os.unlink(tfile.name)
+
+st.markdown("</div>", unsafe_allow_html=True)
 
 # ---------------- FOOTER ----------------
 st.markdown("---")
 st.markdown(
-    "<div class='footer'>! Developed By Mr. Ganesh Pansare ! | YOLO + Streamlit</div>",
+    "<div class='footer'>🚀 Developed for Smart Road Monitoring | YOLO + Streamlit</div>",
     unsafe_allow_html=True
 )
