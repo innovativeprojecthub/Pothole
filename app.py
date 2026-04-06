@@ -128,15 +128,31 @@ else:
     )
 
     if uploaded_file:
-        if "image" in uploaded_file.type:
-            image = Image.open(uploaded_file)
-            image_np = np.array(image)
+    if "image" in uploaded_file.type:
+        image = Image.open(uploaded_file)
 
-            results = model(image_np, stream=True)
-            image_np = draw_boxes(image_np, results)
+        # 🔵 FIX 1: Convert to RGB (removes alpha channel issues)
+        image = image.convert("RGB")
 
-            st.image(image_np, caption="✅ Detected Potholes", use_column_width=True)
+        image_np = np.array(image)
 
+        # 🔵 FIX 2: Ensure correct dtype
+        image_np = image_np.astype(np.uint8)
+
+        # 🔵 FIX 3: Validate shape
+        if image_np is None or len(image_np.shape) != 3:
+            st.error("Invalid image format")
+            st.stop()
+
+        try:
+            results = model(image_np)   # ❌ REMOVE stream=True
+        except Exception as e:
+            st.error(f"Model inference error: {e}")
+            st.stop()
+
+        image_np = draw_boxes(image_np, results)
+
+        st.image(image_np, caption="✅ Detected Potholes", use_column_width=True)
         else:
             tfile = tempfile.NamedTemporaryFile(delete=False)
             tfile.write(uploaded_file.read())
