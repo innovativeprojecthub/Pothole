@@ -34,36 +34,28 @@ body {
     font-size: 18px;
 }
 
-/* Card Hover */
+/* Card */
 .card {
     background-color: white;
     padding: 25px;
     border-radius: 15px;
     box-shadow: 0px 10px 25px rgba(0,0,0,0.08);
     margin-bottom: 20px;
-    transition: all 0.35s ease-in-out;
+    transition: all 0.3s ease;
 }
 .card:hover {
-    transform: translateY(-10px) scale(1.02);
-    box-shadow: 0px 25px 45px rgba(0,0,0,0.18);
+    transform: translateY(-10px);
 }
 
-/* Slider animation */
-div[data-baseweb="slider"] {
-    transition: all 0.3s ease-in-out;
-}
+/* Slider */
 div[data-baseweb="slider"]:hover {
     transform: scale(1.03);
-}
-div[data-baseweb="slider"] span {
-    background-color: #0ea5e9 !important;
 }
 
 /* Footer */
 .footer {
     text-align: center;
     color: #334155;
-    font-size: 14px;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -94,11 +86,6 @@ model = load_model()
 # ---------------- SIDEBAR ----------------
 st.sidebar.title("⚙️ Control Panel")
 
-mode = st.sidebar.radio(
-    "🎥 Select Detection Mode",
-    ("📤 Upload Image / Video",)
-)
-
 confidence = st.sidebar.slider(
     "🎯 Confidence Threshold",
     0.1, 1.0, 0.4
@@ -108,99 +95,79 @@ st.sidebar.success("🟢 Model Loaded Successfully")
 
 # ---------------- DRAW FUNCTION ----------------
 def draw_boxes(frame, results):
-    try:
-        for r in results:
-            for box in r.boxes:
-                conf = float(box.conf[0])
-
-                if conf >= confidence:
-                    x1, y1, x2, y2 = map(int, box.xyxy[0])
-
-                    cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
-
-                    cv2.putText(
-                        frame,
-                        f"POTHOLE {conf:.2f}",
-                        (x1, y1 - 8),
-                        cv2.FONT_HERSHEY_SIMPLEX,
-                        0.6,
-                        (0, 255, 0),
-                        2
-                    )
-    except Exception as e:
-        st.error(f"Drawing error: {e}")
-
+    for r in results:
+        for box in r.boxes:
+            conf = float(box.conf[0])
+            if conf >= confidence:
+                x1, y1, x2, y2 = map(int, box.xyxy[0])
+                cv2.rectangle(frame, (x1, y1), (x2, y2), (0,255,0), 2)
+                cv2.putText(frame, f"POTHOLE {conf:.2f}",
+                            (x1, y1-8),
+                            cv2.FONT_HERSHEY_SIMPLEX,
+                            0.6,
+                            (0,255,0), 2)
     return frame
 
 # ---------------- MAIN ----------------
 st.markdown("<div class='card'>", unsafe_allow_html=True)
 
-st.subheader("📤 Upload Image or Video")
-uploaded_file = st.file_uploader(
-    "Choose a file",
-    type=["jpg", "jpeg", "png", "mp4", "avi", "mov"]
-)
+st.subheader("📸 Capture or Upload")
+
+uploaded_file = st.file_uploader("Upload Image", type=["jpg","jpeg","png"])
+camera_image = st.camera_input("Take Photo")
+video_file = st.file_uploader("Upload Video", type=["mp4","avi","mov"])
+
+# ---------- IMAGE FROM CAMERA OR UPLOAD ----------
+input_image = None
 
 if uploaded_file:
+    input_image = Image.open(uploaded_file).convert("RGB")
 
-    # ---------- IMAGE ----------
-    if "image" in uploaded_file.type:
-        image = Image.open(uploaded_file)
+elif camera_image:
+    input_image = Image.open(camera_image).convert("RGB")
 
-        # Fix 1: convert to RGB
-        image = image.convert("RGB")
+if input_image:
+    st.image(input_image, caption="📷 Input Image", use_column_width=True)
 
-        image_np = np.array(image)
+    img_np = np.array(input_image).astype(np.uint8)
 
-        # Fix 2: dtype
-        image_np = image_np.astype(np.uint8)
+    try:
+        results = model(img_np)
+        img_np = draw_boxes(img_np, results)
+    except Exception as e:
+        st.error(f"Detection error: {e}")
+        st.stop()
 
-        # Fix 3: validate
-        if image_np is None or len(image_np.shape) != 3:
-            st.error("Invalid image format")
-            st.stop()
+    st.image(img_np, caption="✅ Detected Potholes", use_column_width=True)
+
+# ---------- VIDEO ----------
+if video_file:
+    tfile = tempfile.NamedTemporaryFile(delete=False)
+    tfile.write(video_file.read())
+
+    cap = cv2.VideoCapture(tfile.name)
+    stframe = st.image([])
+
+    while cap.isOpened():
+        ret, frame = cap.read()
+        if not ret:
+            break
 
         try:
-            results = model(image_np)   # FIXED (no stream=True)
+            results = model(frame)
+            frame = draw_boxes(frame, results)
         except Exception as e:
-            st.error(f"Inference error: {e}")
-            st.stop()
+            st.error(f"Video error: {e}")
+            break
 
-        image_np = draw_boxes(image_np, results)
+        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        stframe.image(frame)
 
-        st.image(image_np, caption="✅ Detected Potholes", use_column_width=True)
-
-    # ---------- VIDEO ----------
-    else:
-        tfile = tempfile.NamedTemporaryFile(delete=False)
-        tfile.write(uploaded_file.read())
-
-        cap = cv2.VideoCapture(tfile.name)
-        stframe = st.image([])
-
-        while cap.isOpened():
-            ret, frame = cap.read()
-            if not ret:
-                break
-
-            try:
-                results = model(frame)
-                frame = draw_boxes(frame, results)
-            except Exception as e:
-                st.error(f"Video processing error: {e}")
-                break
-
-            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            stframe.image(frame)
-
-        cap.release()
-        os.unlink(tfile.name)
+    cap.release()
+    os.unlink(tfile.name)
 
 st.markdown("</div>", unsafe_allow_html=True)
 
 # ---------------- FOOTER ----------------
 st.markdown("---")
-st.markdown(
-    "<div class='footer'>🚀 Developed for Smart Road Monitoring | YOLO + Streamlit</div>",
-    unsafe_allow_html=True
-)
+st.markdown("<div class='footer'>🚀 Smart Road Monitoring System</div>", unsafe_allow_html=True)
