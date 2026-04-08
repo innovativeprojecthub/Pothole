@@ -5,6 +5,7 @@ from ultralytics import YOLO
 from PIL import Image
 import tempfile
 import os
+import requests
 
 # ---------------- PAGE CONFIG ----------------
 st.set_page_config(
@@ -60,10 +61,19 @@ with col2:
 
 st.markdown("---")
 
-# ---------------- LOAD MODEL ----------------
+# ---------------- MODEL DOWNLOAD ----------------
+MODEL_PATH = "best.pt"
+MODEL_URL = "https://drive.google.com/uc?id=YOUR_FILE_ID"   # 🔥 replace
+
 @st.cache_resource
 def load_model():
-    return YOLO("best.pt")
+    if not os.path.exists(MODEL_PATH):
+        st.warning("📥 Downloading model...")
+        response = requests.get(MODEL_URL)
+        with open(MODEL_PATH, "wb") as f:
+            f.write(response.content)
+        st.success("✅ Model downloaded")
+    return YOLO(MODEL_PATH)
 
 model = load_model()
 
@@ -72,7 +82,7 @@ st.sidebar.title("⚙️ Control Panel")
 
 mode = st.sidebar.radio(
     "Select Mode",
-    ["📷 Live Camera", "📤 Upload Image", "🎥 Upload Video"]
+    ["📷 Live Photo", "📤 Upload Image", "🎥 Upload Video"]
 )
 
 confidence = st.sidebar.slider("Confidence", 0.1, 1.0, 0.4)
@@ -93,37 +103,24 @@ def draw_boxes(frame, results):
                             0.6, (0,255,0), 2)
     return frame
 
-# ================= LIVE CAMERA =================
-if mode == "📷 Live Camera":
+# ================= LIVE PHOTO =================
+if mode == "📷 Live Photo":
     st.markdown("<div class='card'>", unsafe_allow_html=True)
-    st.subheader("📷 Live Camera Detection (Local Only)")
 
-    run = st.checkbox("Start Camera")
+    st.subheader("📷 Capture Live Photo")
 
-    col1, col2 = st.columns(2)
-    live = col1.image([])
-    detected = col2.image([])
+    camera_image = st.camera_input("Take Photo")
 
-    if run:
-        cap = cv2.VideoCapture(0)
+    if camera_image:
+        img = Image.open(camera_image).convert("RGB")
+        st.image(img, caption="Captured Image")
 
-        if not cap.isOpened():
-            st.error("Camera not accessible")
-        else:
-            while run:
-                ret, frame = cap.read()
-                if not ret:
-                    break
+        img_np = np.array(img).astype(np.uint8)
 
-                live.image(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+        results = model(img_np)
+        img_np = draw_boxes(img_np, results)
 
-                frame_small = cv2.resize(frame, (640,480))
-                results = model(frame_small)
-                frame_small = draw_boxes(frame_small, results)
-
-                detected.image(cv2.cvtColor(frame_small, cv2.COLOR_BGR2RGB))
-
-        cap.release()
+        st.image(img_np, caption="Detected Potholes")
 
     st.markdown("</div>", unsafe_allow_html=True)
 
@@ -132,24 +129,17 @@ elif mode == "📤 Upload Image":
     st.markdown("<div class='card'>", unsafe_allow_html=True)
 
     uploaded = st.file_uploader("Upload Image", type=["jpg","png","jpeg"])
-    camera = st.camera_input("Or Take Photo")
-
-    img = None
 
     if uploaded:
         img = Image.open(uploaded).convert("RGB")
-    elif camera:
-        img = Image.open(camera).convert("RGB")
-
-    if img:
-        st.image(img, caption="Input")
+        st.image(img, caption="Input Image")
 
         img_np = np.array(img).astype(np.uint8)
 
         results = model(img_np)
         img_np = draw_boxes(img_np, results)
 
-        st.image(img_np, caption="Detected")
+        st.image(img_np, caption="Detected Potholes")
 
     st.markdown("</div>", unsafe_allow_html=True)
 
@@ -160,20 +150,28 @@ elif mode == "🎥 Upload Video":
     video_file = st.file_uploader("Upload Video", type=["mp4","avi","mov"])
 
     if video_file:
-        st.warning("Processing video...")
+        st.warning("⏳ Processing video... Please wait")
 
-        tfile = tempfile.NamedTemporaryFile(delete=False)
-        tfile.write(video_file.read())
+        input_path = "input_video.mp4"
+        with open(input_path, "wb") as f:
+            f.write(video_file.read())
 
-        cap = cv2.VideoCapture(tfile.name)
+        cap = cv2.VideoCapture(input_path)
+
+        width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        fps = int(cap.get(cv2.CAP_PROP_FPS))
+
+        output_path = "output_video.mp4"
+
+        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+        out = cv2.VideoWriter(output_path, fourcc, fps, (640, 480))
 
         total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
         progress = st.progress(0)
 
-        stframe = st.image([])
-
         count = 0
-        skip = 3  # speed optimization
+        skip = 3
 
         while cap.isOpened():
             ret, frame = cap.read()
@@ -181,22 +179,30 @@ elif mode == "🎥 Upload Video":
                 break
 
             count += 1
-            if count % skip != 0:
-                continue
-
             frame = cv2.resize(frame, (640,480))
 
-            results = model(frame)
-            frame = draw_boxes(frame, results)
+            if count % skip == 0:
+                results = model(frame)
+                frame = draw_boxes(frame, results)
 
-            stframe.image(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+            out.write(frame)
 
             progress.progress(min(int((count/total)*100), 100))
 
         cap.release()
-        os.unlink(tfile.name)
+        out.release()
 
-        st.success("Video completed")
+        st.success("✅ Video Processing Completed")
+
+        st.video(output_path)
+
+        with open(output_path, "rb") as f:
+            st.download_button(
+                label="📥 Download Processed Video",
+                data=f,
+                file_name="pothole_detected.mp4",
+                mime="video/mp4"
+            )
 
     st.markdown("</div>", unsafe_allow_html=True)
 
