@@ -13,17 +13,12 @@ st.set_page_config(
     layout="wide"
 )
 
-# ---------------- CUSTOM CSS ----------------
+# ---------------- CSS ----------------
 st.markdown("""
 <style>
-body {
-    background-color: #87CEEB;
-}
-.stApp {
-    background-color: #87CEEB;
-}
+body { background-color: #87CEEB; }
+.stApp { background-color: #87CEEB; }
 
-/* Header */
 .main-title {
     font-size: 45px;
     font-weight: 800;
@@ -34,25 +29,18 @@ body {
     font-size: 18px;
 }
 
-/* Card */
 .card {
-    background-color: white;
+    background: white;
     padding: 25px;
     border-radius: 15px;
     box-shadow: 0px 10px 25px rgba(0,0,0,0.08);
     margin-bottom: 20px;
-    transition: all 0.3s ease;
+    transition: 0.3s;
 }
 .card:hover {
     transform: translateY(-10px);
 }
 
-/* Slider */
-div[data-baseweb="slider"]:hover {
-    transform: scale(1.03);
-}
-
-/* Footer */
 .footer {
     text-align: center;
     color: #334155;
@@ -61,11 +49,11 @@ div[data-baseweb="slider"]:hover {
 """, unsafe_allow_html=True)
 
 # ---------------- HEADER ----------------
-col1, col2 = st.columns([3, 2])
+col1, col2 = st.columns([3,2])
 
 with col1:
     st.markdown("<div class='main-title'>🕳️ Pothole Detection System</div>", unsafe_allow_html=True)
-    st.markdown("<div class='subtitle'>YOLO-based Intelligent Road Damage Detection</div>", unsafe_allow_html=True)
+    st.markdown("<div class='subtitle'>YOLO-based Intelligent Detection</div>", unsafe_allow_html=True)
 
 with col2:
     st.image("PotholeGIF.gif", use_column_width=True)
@@ -75,23 +63,21 @@ st.markdown("---")
 # ---------------- LOAD MODEL ----------------
 @st.cache_resource
 def load_model():
-    model_path = os.path.join(os.path.dirname(__file__), "best.pt")
-    if not os.path.exists(model_path):
-        st.error("❌ Model file (best.pt) not found")
-        st.stop()
-    return YOLO(model_path)
+    return YOLO("best.pt")
 
 model = load_model()
 
 # ---------------- SIDEBAR ----------------
 st.sidebar.title("⚙️ Control Panel")
 
-confidence = st.sidebar.slider(
-    "🎯 Confidence Threshold",
-    0.1, 1.0, 0.4
+mode = st.sidebar.radio(
+    "Select Mode",
+    ["📷 Live Camera", "📤 Upload Image", "🎥 Upload Video"]
 )
 
-st.sidebar.success("🟢 Model Loaded Successfully")
+confidence = st.sidebar.slider("Confidence", 0.1, 1.0, 0.4)
+
+st.sidebar.success("🟢 Model Loaded")
 
 # ---------------- DRAW FUNCTION ----------------
 def draw_boxes(frame, results):
@@ -100,73 +86,119 @@ def draw_boxes(frame, results):
             conf = float(box.conf[0])
             if conf >= confidence:
                 x1, y1, x2, y2 = map(int, box.xyxy[0])
-                cv2.rectangle(frame, (x1, y1), (x2, y2), (0,255,0), 2)
+                cv2.rectangle(frame, (x1,y1), (x2,y2), (0,255,0), 2)
                 cv2.putText(frame, f"POTHOLE {conf:.2f}",
-                            (x1, y1-8),
+                            (x1,y1-10),
                             cv2.FONT_HERSHEY_SIMPLEX,
-                            0.6,
-                            (0,255,0), 2)
+                            0.6, (0,255,0), 2)
     return frame
 
-# ---------------- MAIN ----------------
-st.markdown("<div class='card'>", unsafe_allow_html=True)
+# ================= LIVE CAMERA =================
+if mode == "📷 Live Camera":
+    st.markdown("<div class='card'>", unsafe_allow_html=True)
+    st.subheader("📷 Live Camera Detection (Local Only)")
 
-st.subheader("📸 Capture or Upload")
+    run = st.checkbox("Start Camera")
 
-uploaded_file = st.file_uploader("Upload Image", type=["jpg","jpeg","png"])
-camera_image = st.camera_input("Take Photo")
-video_file = st.file_uploader("Upload Video", type=["mp4","avi","mov"])
+    col1, col2 = st.columns(2)
+    live = col1.image([])
+    detected = col2.image([])
 
-# ---------- IMAGE FROM CAMERA OR UPLOAD ----------
-input_image = None
+    if run:
+        cap = cv2.VideoCapture(0)
 
-if uploaded_file:
-    input_image = Image.open(uploaded_file).convert("RGB")
+        if not cap.isOpened():
+            st.error("Camera not accessible")
+        else:
+            while run:
+                ret, frame = cap.read()
+                if not ret:
+                    break
 
-elif camera_image:
-    input_image = Image.open(camera_image).convert("RGB")
+                live.image(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
 
-if input_image:
-    st.image(input_image, caption="📷 Input Image", use_column_width=True)
+                frame_small = cv2.resize(frame, (640,480))
+                results = model(frame_small)
+                frame_small = draw_boxes(frame_small, results)
 
-    img_np = np.array(input_image).astype(np.uint8)
+                detected.image(cv2.cvtColor(frame_small, cv2.COLOR_BGR2RGB))
 
-    try:
+        cap.release()
+
+    st.markdown("</div>", unsafe_allow_html=True)
+
+# ================= IMAGE =================
+elif mode == "📤 Upload Image":
+    st.markdown("<div class='card'>", unsafe_allow_html=True)
+
+    uploaded = st.file_uploader("Upload Image", type=["jpg","png","jpeg"])
+    camera = st.camera_input("Or Take Photo")
+
+    img = None
+
+    if uploaded:
+        img = Image.open(uploaded).convert("RGB")
+    elif camera:
+        img = Image.open(camera).convert("RGB")
+
+    if img:
+        st.image(img, caption="Input")
+
+        img_np = np.array(img).astype(np.uint8)
+
         results = model(img_np)
         img_np = draw_boxes(img_np, results)
-    except Exception as e:
-        st.error(f"Detection error: {e}")
-        st.stop()
 
-    st.image(img_np, caption="✅ Detected Potholes", use_column_width=True)
+        st.image(img_np, caption="Detected")
 
-# ---------- VIDEO ----------
-if video_file:
-    tfile = tempfile.NamedTemporaryFile(delete=False)
-    tfile.write(video_file.read())
+    st.markdown("</div>", unsafe_allow_html=True)
 
-    cap = cv2.VideoCapture(tfile.name)
-    stframe = st.image([])
+# ================= VIDEO =================
+elif mode == "🎥 Upload Video":
+    st.markdown("<div class='card'>", unsafe_allow_html=True)
 
-    while cap.isOpened():
-        ret, frame = cap.read()
-        if not ret:
-            break
+    video_file = st.file_uploader("Upload Video", type=["mp4","avi","mov"])
 
-        try:
+    if video_file:
+        st.warning("Processing video...")
+
+        tfile = tempfile.NamedTemporaryFile(delete=False)
+        tfile.write(video_file.read())
+
+        cap = cv2.VideoCapture(tfile.name)
+
+        total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        progress = st.progress(0)
+
+        stframe = st.image([])
+
+        count = 0
+        skip = 3  # speed optimization
+
+        while cap.isOpened():
+            ret, frame = cap.read()
+            if not ret:
+                break
+
+            count += 1
+            if count % skip != 0:
+                continue
+
+            frame = cv2.resize(frame, (640,480))
+
             results = model(frame)
             frame = draw_boxes(frame, results)
-        except Exception as e:
-            st.error(f"Video error: {e}")
-            break
 
-        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        stframe.image(frame)
+            stframe.image(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
 
-    cap.release()
-    os.unlink(tfile.name)
+            progress.progress(min(int((count/total)*100), 100))
 
-st.markdown("</div>", unsafe_allow_html=True)
+        cap.release()
+        os.unlink(tfile.name)
+
+        st.success("Video completed")
+
+    st.markdown("</div>", unsafe_allow_html=True)
 
 # ---------------- FOOTER ----------------
 st.markdown("---")
